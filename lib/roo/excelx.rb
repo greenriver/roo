@@ -97,7 +97,7 @@ module Roo
     def sheet_for(sheet)
       sheet ||= default_sheet
       validate_sheet!(sheet)
-      @sheets_by_name[sheet]
+      @sheets_by_name[sheet] || @sheets[sheet]
     end
 
     def images(sheet = nil)
@@ -357,10 +357,9 @@ module Roo
 
       wb_rels.extract(path)
       rels_doc = Roo::Utils.load_xml(path).remove_namespaces!
-      worksheet_type = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet'
 
       relationships = rels_doc.xpath('//Relationship').select do |relationship|
-        relationship.attributes['Type'].value == worksheet_type
+        worksheet_types.include? relationship.attributes['Type'].value
       end
 
       relationships.inject({}) do |hash, relationship|
@@ -456,7 +455,7 @@ module Roo
         when /drawing([0-9]+).xml.rels$/
           # Extracting drawing relationships to make images lists for each sheet
           nr = Regexp.last_match[1].to_i
-          image_rels[nr -1] = "#{@tmpdir}/roo_image_rels#{nr}"
+          image_rels[nr - 1] = "#{@tmpdir}/roo_image_rels#{nr}"
         end
 
         entry.extract(path) if path
@@ -465,6 +464,13 @@ module Roo
 
     def safe_send(object, method, *args)
       object.send(method, *args) if object && object.respond_to?(method)
+    end
+
+    def worksheet_types
+      [
+        'http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet', # OOXML Transitional
+        'http://purl.oclc.org/ooxml/officeDocument/relationships/worksheet' # OOXML Strict
+      ]
     end
   end
 end
